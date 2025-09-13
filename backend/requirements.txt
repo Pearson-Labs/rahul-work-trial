@@ -1,0 +1,35 @@
+# Core API Framework
+fastapi
+uvicorn
+pydantic
+
+# Environment & Config
+python-dotenv
+
+# AI & LLM
+anthropic
+google-generativeai
+langgraph
+langchain
+langchain-anthropic
+
+# Vector Database
+pinecone-client
+
+# Document Processing
+python-docx
+
+# Google Drive Integration
+google-api-python-client
+google-auth-httplib2
+google-auth-oauthlib
+
+# Database & Storage
+supabase
+psycopg2-binary
+
+# Authentication & Security
+python-jose[cryptography]
+
+# HTTP Client
+httpx
