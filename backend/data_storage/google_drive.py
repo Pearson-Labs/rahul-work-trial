@@ -1,21 +1,16 @@
 import os
 import io
-from typing import Optional, List, Dict
 from google.oauth2 import service_account
 from googleapiclient.discovery import build
 from googleapiclient.http import MediaIoBaseDownload
 import docx
 import datetime
-try:
-    from .database import supabase
-    from .pinecone_store import get_pinecone_store
-except ImportError:
-    from database import supabase
-    from pinecone_store import get_pinecone_store
+from .database import supabase
+from .pinecone_store import get_pinecone_store
 
 # Use an absolute path to locate the credentials file
 # This assumes your script is run from the root of the 'backend' directory
-SERVICE_ACCOUNT_FILE = os.path.abspath(os.path.join(os.path.dirname(__file__), 'google_credentials.json'))
+SERVICE_ACCOUNT_FILE = "/Users/malla/Desktop/rahul-work-trial/backend/google_credentials.json"
 SCOPES = ['https://www.googleapis.com/auth/drive.readonly']
 
 def get_drive_service():

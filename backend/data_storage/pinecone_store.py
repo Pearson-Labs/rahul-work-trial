@@ -3,10 +3,7 @@ import uuid
 from typing import List, Dict, Any, Optional
 from pinecone import Pinecone, ServerlessSpec
 from dotenv import load_dotenv
-try:
-    from .database import supabase
-except ImportError:
-    from database import supabase
+from .database import supabase
 import json
 
 load_dotenv()

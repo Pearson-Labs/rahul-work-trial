@@ -5,9 +5,9 @@ from langchain_anthropic import ChatAnthropic
 from langchain_core.messages import HumanMessage, SystemMessage
 from dotenv import load_dotenv
 
-from ..data_storage.database import supabase
-from ..data_storage.pinecone_store import get_pinecone_store
-from .state import ContractAnalysisState
+from data_storage.database import supabase
+from data_storage.pinecone_store import get_pinecone_store
+from agents.state import ContractAnalysisState
 
 load_dotenv()
 

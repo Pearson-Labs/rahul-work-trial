@@ -1,104 +1,93 @@
-import os
-import json
-from typing import List, Dict, Any, Optional
-from langchain_anthropic import ChatAnthropic
-from langchain_core.messages import HumanMessage, SystemMessage
-from dotenv import load_dotenv
+"""
+Validation agent for analyzing extraction quality and determining retry strategies.
+"""
 
-from ..data_storage.database import supabase
-from ..data_storage.pinecone_store import get_pinecone_store
-from .state import ContractAnalysisState
-
-load_dotenv()
+from typing import Dict
+from agents.state import ContractAnalysisState
 
 class ValidationAgent:
-    def _validate_findings(self, state: ContractAnalysisState) -> ContractAnalysisState:
+    async def validate_findings(self, state: ContractAnalysisState) -> ContractAnalysisState:
         """
-        Validates analysis findings and calculates confidence scores.
+        Validates analysis findings, calculates confidence, and increments retry counter.
         """
-        try:
-            print(f"✅ VALIDATION AGENT: Validating findings...")
+        print("🔎 VALIDATION AGENT: Validating matrix data...")
+        findings = state.get("matrix_data", {})
+        
+        # Increment the retry counter each time this node runs
+        current_retries = state.get("retry_count", 0)
+        
+        confidence_scores = {}
+        total_confidence = 0.0
 
-            findings = state["preliminary_findings"]
-            confidence_scores = {}
+        for doc_name, doc_analysis in findings.items():
+            confidence = self._calculate_document_confidence(doc_analysis)
+            confidence_scores[doc_name] = confidence
+            total_confidence += confidence
+        
+        valid_docs = len(findings)
+        overall_confidence = total_confidence / valid_docs if valid_docs > 0 else 0.0
+        
+        confidence_is_low = overall_confidence < 0.5 or state.get("retrieval_confidence", 0) < 0.4
+        
+        print(f"  - Overall confidence: {overall_confidence:.2f}")
+        
+        return {
+            **state,
+            "confidence_scores": confidence_scores,
+            "needs_retry": confidence_is_low,
+            "retry_count": current_retries + 1, # Increment for the next potential check
+            "processing_step": "validation_complete"
+        }
 
-            # Calculate confidence for each document
-            total_confidence = 0.0
-            valid_docs = 0
+    def _calculate_document_confidence(self, doc_analysis: Dict) -> float:
+        """Calculates confidence based on coverage and sourcing."""
+        if not doc_analysis or not isinstance(doc_analysis, dict):
+            return 0.0
+        
+        total_columns = len(doc_analysis)
+        filled_columns = 0
+        sourced_columns = 0
 
-            for doc_name, doc_analysis in findings.items():
-                if isinstance(doc_analysis, dict) and "error" not in doc_name.lower():
-                    confidence = self._calculate_document_confidence(doc_analysis, state)
-                    confidence_scores[doc_name] = confidence
-                    total_confidence += confidence
-                    valid_docs += 1
-
-            # Overall confidence
-            overall_confidence = total_confidence / valid_docs if valid_docs > 0 else 0.0
-
-            # Determine if retry is needed
-            needs_retry = (
-                overall_confidence < 0.4 or  # Low confidence
-                len(findings) < 3 or  # Too few results
-                state.get("retrieval_confidence", 0) < 0.3  # Poor retrieval
-            )
-
-            print(f"📊 Overall confidence: {overall_confidence:.2f}")
-            print(f"🔄 Needs retry: {needs_retry}")
-
-            return {
-                **state,
-                "confidence_scores": confidence_scores,
-                "needs_retry": needs_retry,
-                "processing_step": "validation_complete"
-            }
-
-        except Exception as e:
-            print(f"❌ Validation error: {e}")
-            return {
-                **state,
-                "confidence_scores": {},
-                "needs_retry": False,  # Don't retry on validation errors
-                "error_message": f"Validation failed: {str(e)}",
-                "processing_step": "validation_error"
-            }
-
-    def _calculate_document_confidence(self, doc_analysis: Dict, state: ContractAnalysisState) -> float:
-        """
-        Calculate confidence for a single document analysis
-        """
-        try:
-            if not doc_analysis:
-                return 0.0
-
-            total_columns = len(doc_analysis)
-            non_na_columns = 0
-            has_sources = 0
-
-            for column_data in doc_analysis.values():
-                if isinstance(column_data, dict):
-                    value = column_data.get("value", "N/A")
-                    source = column_data.get("source", "")
-
-                    if value != "N/A":
-                        non_na_columns += 1
-                        if source and len(source) > 10:  # Has meaningful source
-                            has_sources += 1
-
-            # Calculate confidence metrics
-            coverage_ratio = non_na_columns / total_columns if total_columns > 0 else 0
-            source_ratio = has_sources / non_na_columns if non_na_columns > 0 else 0
-
-            # Combined confidence
-            confidence = (coverage_ratio * 0.6) + (source_ratio * 0.4)
-            return min(confidence, 1.0)
-
-        except Exception as e:
-            print(f"Warning: Document confidence calculation failed: {e}")
-            return 0.3  # Default low confidence
+        for col_data in doc_analysis.values():
+            if isinstance(col_data, dict):
+                value = col_data.get("value", "Not Found")
+                source = col_data.get("source", "")
+                if value not in ["Not Found", "N/A", ""]:
+                    filled_columns += 1
+                    if source and len(source) > 10:
+                        sourced_columns += 1
+        
+        coverage_ratio = filled_columns / total_columns if total_columns > 0 else 0
+        source_ratio = sourced_columns / filled_columns if filled_columns > 0 else 0
+        
+        return (coverage_ratio * 0.6) + (source_ratio * 0.4)
 
     def should_retry_analysis(self, state: ContractAnalysisState) -> str:
         """
-        Determine if analysis should be retried
+        Enhanced retry logic with different retry strategies
         """
-        return "retry" if state.get("needs_retry", False) else "continue"
+        needs_retry = state.get("needs_retry", False)
+        retry_count = state.get("retry_count", 0)
+        retrieval_confidence = state.get("retrieval_confidence", 0.5)
+        success_rate = state.get("success_rate", 0)
+
+        # More intelligent retry logic
+        if needs_retry and retry_count <= 2:  # Allow more retries
+            if retry_count == 0 and retrieval_confidence < 0.3:
+                print(f"🔄 Low retrieval confidence ({retrieval_confidence:.2f}). Retrying retrieval...")
+                return "retry"
+            elif retry_count == 1 and success_rate < 30:
+                print(f"🔄 Low success rate ({success_rate:.1f}%). Retrying analysis with different approach...")
+                return "retry_analysis"
+            elif retry_count == 2:
+                print(f"🔄 Final retry attempt with expanded search...")
+                return "retry"
+            else:
+                print(f"🔄 Retrying analysis (Attempt {retry_count + 1})...")
+                return "retry_analysis"
+        else:
+            if needs_retry and retry_count > 2:
+                print("⚠️ Max retries reached. Continuing with best available result.")
+            else:
+                print("✅ Validation passed. Continuing to synthesis.")
+            return "continue"

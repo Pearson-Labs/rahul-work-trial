@@ -1,35 +1,30 @@
-# Core API Framework
+# Essential Core API
 fastapi
-uvicorn
 pydantic
+uvicorn
 
-# Environment & Config
+# Vercel Adapter
+mangum
+
+# Environment
 python-dotenv
 
-# AI & LLM
+# AI & LLM (let pip resolve compatible versions)
 anthropic
-google-generativeai
 langgraph
 langchain
 langchain-anthropic
+langchain-core
 
 # Vector Database
 pinecone-client
 
-# Document Processing
-python-docx
-
-# Google Drive Integration
-google-api-python-client
-google-auth-httplib2
-google-auth-oauthlib
-
-# Database & Storage
-supabase
-psycopg2-binary
-
-# Authentication & Security
-python-jose[cryptography]
-
-# HTTP Client
+# Database
 httpx
+supabase
+
+# Auth
+python-jose
+
+# Document processing
+python-docx

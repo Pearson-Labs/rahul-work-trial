@@ -1,8 +1,7 @@
 import os
-from typing import Optional
 from fastapi import HTTPException, Security, status
 from fastapi.security import HTTPBearer, HTTPAuthorizationCredentials
-from jose import jwt, jwk
+from jose import jwt
 import httpx
 from dotenv import load_dotenv
 
@@ -14,18 +13,18 @@ CLERK_JWKS_URL = "https://faithful-urchin-60.clerk.accounts.dev/.well-known/jwks
 # Cache for JWKS
 jwks_cache = None
 
-async def get_jwks():
+def get_jwks():
     global jwks_cache
     if jwks_cache is None:
         print("Fetching JWKS from Clerk...")
-        async with httpx.AsyncClient() as client:
-            response = await client.get(CLERK_JWKS_URL)
+        with httpx.Client() as client:
+            response = client.get(CLERK_JWKS_URL)
             response.raise_for_status()
             jwks_cache = response.json()
         print("JWKS fetched and cached.")
     return jwks_cache
 
-async def verify_clerk_jwt(credentials: HTTPAuthorizationCredentials = Security(HTTPBearer())) -> str:
+def verify_clerk_jwt(credentials: HTTPAuthorizationCredentials = Security(HTTPBearer())) -> str:
     if not CLERK_SECRET_KEY:
         print("CLERK_SECRET_KEY not configured in backend/.env")
         raise HTTPException(status_code=status.HTTP_500_INTERNAL_SERVER_ERROR, detail="CLERK_SECRET_KEY not configured")
@@ -43,7 +42,7 @@ async def verify_clerk_jwt(credentials: HTTPAuthorizationCredentials = Security(
             raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="Invalid token: missing kid")
 
         # Fetch JWKS and find the key matching the kid
-        jwks = await get_jwks()
+        jwks = get_jwks()
         
         key = None
         for jwk_key in jwks["keys"]:
