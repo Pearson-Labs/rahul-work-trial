@@ -8,9 +8,8 @@ import datetime
 from .database import supabase
 from .pinecone_store import get_pinecone_store
 
-# Use an absolute path to locate the credentials file
-# This assumes your script is run from the root of the 'backend' directory
-SERVICE_ACCOUNT_FILE = "/Users/malla/Desktop/rahul-work-trial/backend/google_credentials.json"
+# Use environment variable for credentials file path
+SERVICE_ACCOUNT_FILE = os.path.join(os.path.dirname(__file__), "..", "google_credentials.json")
 SCOPES = ['https://www.googleapis.com/auth/drive.readonly']
 
 def get_drive_service():
