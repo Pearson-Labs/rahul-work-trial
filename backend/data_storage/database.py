@@ -7,10 +7,22 @@ load_dotenv()
 SUPABASE_URL = os.getenv("SUPABASE_URL")
 SUPABASE_KEY = os.getenv("SUPABASE_KEY")
 
-if not SUPABASE_URL or not SUPABASE_KEY:
-    raise ValueError("Supabase URL and Key must be set in environment variables")
+# Create supabase client directly - simple approach
+try:
+    if SUPABASE_URL and SUPABASE_KEY:
+        supabase: Client = create_client(SUPABASE_URL, SUPABASE_KEY)
+    else:
+        supabase = None
+        print("⚠️  Supabase credentials not found - database features will be limited")
+except Exception as e:
+    supabase = None
+    print(f"⚠️  Supabase connection failed: {e}")
 
-supabase: Client = create_client(SUPABASE_URL, SUPABASE_KEY)
+def get_supabase_client():
+    """Get Supabase client - fallback function for compatibility"""
+    if supabase is None:
+        raise ValueError("Supabase URL and Key must be set in environment variables")
+    return supabase
 
 # The following functions are for reference and manual execution in Supabase SQL Editor.
 # Programmatic DDL execution with supabase-py is not directly supported

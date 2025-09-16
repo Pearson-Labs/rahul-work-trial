@@ -18,14 +18,16 @@ import os
 import traceback
 from typing import Optional
 from enum import Enum
-from data_storage.database import supabase
-from data_storage.google_drive import ingest_documents_from_drive
-from data_storage.pinecone_store import get_pinecone_store
+# Lazy imports to prevent startup crashes
 from core.utils import handle_api_error, validate_required_env_vars, log_operation, create_success_response, APIError
 from core.auth import verify_clerk_jwt
-from agents.langgraph_workflow import LangGraphMultiAgentContractAnalysis as MultiAgentContractAnalysis
 
 app = FastAPI()
+
+@app.get("/health")
+def health_check():
+    """Simple health check that doesn't require database connections"""
+    return {"status": "healthy", "service": "ai-contract-analysis"}
 
 # Configure CORS
 origins = [
@@ -72,6 +74,7 @@ async def process_prompt(request: ProcessRequest, user_id: str = Depends(verify_
 
         # 1. Create matrix record
         try:
+            from data_storage.database import supabase
             matrix_response = supabase.table("matrices").insert({
                 "user_id": user_id,
                 "prompt": request.prompt,
@@ -84,6 +87,7 @@ async def process_prompt(request: ProcessRequest, user_id: str = Depends(verify_
 
         # 2. Use Multi-Agent System for Analysis
         try:
+            from agents.langgraph_workflow import LangGraphMultiAgentContractAnalysis as MultiAgentContractAnalysis
             log_operation("Starting Multi-Agent Analysis", { "query": request.prompt, "matrix_id": matrix_id })
             multi_agent = MultiAgentContractAnalysis()
 
@@ -130,6 +134,7 @@ async def analyze_specialized(request: ProcessRequest, user_id: str = Depends(ve
         validate_required_env_vars("PINECONE_API_KEY", "ANTHROPIC_API_KEY")
 
         try:
+            from data_storage.database import supabase
             matrix_response = supabase.table("matrices").insert({
                 "user_id": user_id,
                 "prompt": request.prompt,
@@ -139,6 +144,7 @@ async def analyze_specialized(request: ProcessRequest, user_id: str = Depends(ve
         except Exception as e:
             raise APIError(f"Failed to create analysis matrix: {str(e)}", "MATRIX_CREATION_ERROR")
 
+        from agents.langgraph_workflow import LangGraphMultiAgentContractAnalysis as MultiAgentContractAnalysis
         multi_agent = MultiAgentContractAnalysis()
         enhanced_prompt = f"[{request.analysis_type.value.upper()} ANALYSIS] {request.prompt}"
 
@@ -172,6 +178,7 @@ async def analyze_specialized(request: ProcessRequest, user_id: str = Depends(ve
 @app.post("/api/ingest-documents")
 def ingest_documents(request: IngestRequest, user_id: str = Depends(verify_clerk_jwt)):
     try:
+        from data_storage.google_drive import ingest_documents_from_drive
         result = ingest_documents_from_drive(request.folder_id, user_id)
         return result
     except Exception as e:
@@ -181,6 +188,7 @@ def ingest_documents(request: IngestRequest, user_id: str = Depends(verify_clerk
 @app.get("/api/documents")
 def get_documents():
     try:
+        from data_storage.database import supabase
         response = supabase.table("document_chunks").select("*").execute()
         return {"document_chunks": response.data}
     except Exception as e:
@@ -190,6 +198,7 @@ def get_documents():
 @app.get("/api/pinecone-stats")
 def get_pinecone_stats(user_id: str = Depends(verify_clerk_jwt)):
     try:
+        from data_storage.pinecone_store import get_pinecone_store
         pinecone_store = get_pinecone_store()
         stats = pinecone_store.get_index_stats()
         return {
@@ -235,10 +244,3 @@ if __name__ == "__main__":
         log_level="info"
     )
 
-# Vercel handler for serverless deployment
-try:
-    from mangum import Mangum
-    handler = Mangum(app, lifespan="off")
-except ImportError:
-    # Mangum not available in local development
-    pass

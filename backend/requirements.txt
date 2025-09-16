@@ -1,10 +1,9 @@
 # Essential Core API
 fastapi
 pydantic
-uvicorn
+uvicorn[standard]
+uvloop
 
-# Vercel Adapter
-mangum
 
 # Environment
 python-dotenv
@@ -28,3 +27,9 @@ python-jose
 
 # Document processing
 python-docx
+
+# Google Drive API
+google-api-python-client
+google-auth
+google-auth-oauthlib
+google-auth-httplib2

@@ -7,8 +7,6 @@
 This backend provides an **enhanced contract analysis system** with the following breakthrough features:
 
 - 🔗 **Clickable Citations** - Direct links to exact Google Drive document locations
-- 📊 **Confidence Scoring** - Visual quality indicators for all extractions
-- 📍 **Page Number Tracking** - Accurate source references with page locations
 - 🔄 **Smart Retry Logic** - LangGraph-powered conditional retries for better accuracy
 - 🛠️ **Tool-Based Extraction** - Specialized AI tools for precise document analysis
 - 🧠 **Multi-Agent Orchestration** - LangGraph workflow with intelligent agent coordination
@@ -84,10 +82,16 @@ GOOGLE_CREDENTIALS_FILE=./google_credentials.json
 # Start the FastAPI server
 uvicorn main:app --reload --host 0.0.0.0 --port 8000
 
-# Server will be available at:
-# - API: http://localhost:8000
-# - Docs: http://localhost:8000/docs
+#  Run it using ngrok tunnel 
+ngrok http 8000
+
 ```
+
+### **3. Run the Server**
+
+- **Clerk Dashboard** - Direct links to exact Google Drive document locations
+- **Vercel Dashboard** - LangGraph-powered conditional retries for better accuracy
+
 
 ## 🎯 **Key Features in Detail**
 
