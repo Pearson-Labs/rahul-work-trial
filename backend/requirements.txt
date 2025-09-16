@@ -16,7 +16,7 @@ langchain-anthropic
 langchain-core
 
 # Vector Database
-pinecone-client
+pinecone
 
 # Database
 httpx
