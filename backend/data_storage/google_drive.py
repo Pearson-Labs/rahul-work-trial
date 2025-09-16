@@ -1,5 +1,6 @@
 import os
 import io
+import json
 from google.oauth2 import service_account
 from googleapiclient.discovery import build
 from googleapiclient.http import MediaIoBaseDownload
@@ -8,17 +9,26 @@ import datetime
 from .database import supabase
 from .pinecone_store import get_pinecone_store
 
-# Use an absolute path to locate the credentials file
-# This assumes your script is run from the root of the 'backend' directory
-SERVICE_ACCOUNT_FILE = "backend/google_credentials.json"
 SCOPES = ['https://www.googleapis.com/auth/drive.readonly']
 
 def get_drive_service():
     """Authenticates and returns a Google Drive service object."""
-    if not os.path.exists(SERVICE_ACCOUNT_FILE):
-        raise FileNotFoundError(f"Service account key file not found at {SERVICE_ACCOUNT_FILE}. Ensure 'google_credentials.json' is in the 'backend' directory.")
-    
-    creds = service_account.Credentials.from_service_account_file(SERVICE_ACCOUNT_FILE, scopes=SCOPES)
+    # Try to get credentials from environment variable first
+    google_creds_json = os.getenv("GOOGLE_CREDENTIALS")
+
+    if google_creds_json:
+        # Parse JSON credentials from environment variable
+        try:
+            creds_info = json.loads(google_creds_json) if isinstance(google_creds_json, str) else google_creds_json
+            creds = service_account.Credentials.from_service_account_info(creds_info, scopes=SCOPES)
+        except (json.JSONDecodeError, ValueError) as e:
+            raise ValueError(f"Invalid GOOGLE_CREDENTIALS JSON format: {e}")
+    else:
+        # Fallback to local file for development
+        SERVICE_ACCOUNT_FILE = "google_credentials.json"
+        if not os.path.exists(SERVICE_ACCOUNT_FILE):
+            raise FileNotFoundError(f"Neither GOOGLE_CREDENTIALS environment variable nor {SERVICE_ACCOUNT_FILE} file found.")
+        creds = service_account.Credentials.from_service_account_file(SERVICE_ACCOUNT_FILE, scopes=SCOPES)
     service = build('drive', 'v3', credentials=creds)
     return service
 
